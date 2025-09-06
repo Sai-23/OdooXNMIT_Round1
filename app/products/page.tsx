@@ -9,13 +9,14 @@ import { ProductCard } from "@/components/products/product-card"
 import { ProductFilters } from "@/components/products/product-filters"
 import { SearchBar } from "@/components/products/search-bar"
 import { Button } from "@/components/ui/button"
-import { getAllProducts, getProductsByCategory, searchProducts } from "@/lib/products"
+import { getAllProducts, getProductsByCategory, searchProducts, createTestProducts } from "@/lib/products"
+import { testFirebaseConnection, testCreateProduct } from "@/lib/firebase-test"
 import type { Product } from "@/types/product"
 import { useToast } from "@/hooks/use-toast"
 import { Package } from "lucide-react"
 
 export default function ProductsPage() {
-  const { user, loading } = useAuth()
+  const { user, userProfile, loading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -51,14 +52,20 @@ export default function ProductsPage() {
       try {
         let fetchedProducts: Product[] = []
 
+        console.log("Fetching products with:", { searchQuery, selectedCategory })
+
         if (searchQuery.trim()) {
+          console.log("Searching products...")
           fetchedProducts = await searchProducts(searchQuery)
         } else if (selectedCategory && selectedCategory !== "all") {
+          console.log("Fetching by category:", selectedCategory)
           fetchedProducts = await getProductsByCategory(selectedCategory)
         } else {
+          console.log("Fetching all products...")
           fetchedProducts = await getAllProducts()
         }
 
+        console.log("Fetched products:", fetchedProducts)
         setProducts(fetchedProducts)
       } catch (error) {
         console.error("Error fetching products:", error)
@@ -72,8 +79,10 @@ export default function ProductsPage() {
       }
     }
 
-    fetchProducts()
-  }, [selectedCategory, searchQuery, toast])
+    if (user) {
+      fetchProducts()
+    }
+  }, [selectedCategory, searchQuery, toast, user])
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category)
@@ -88,6 +97,58 @@ export default function ProductsPage() {
   const handleClearFilters = () => {
     setSelectedCategory("all")
     setSearchQuery("")
+  }
+
+  const handleCreateTestProducts = async () => {
+    try {
+      if (!userProfile) {
+        toast({
+          title: "Error",
+          description: "User profile not found",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      // First test the connection
+      const connectionTest = await testFirebaseConnection()
+      console.log("Connection test result:", connectionTest)
+      
+      if (!connectionTest.success) {
+        toast({
+          title: "Firebase Connection Error",
+          description: connectionTest.message,
+          variant: "destructive",
+        })
+        return
+      }
+      
+      // If connection is good but no products, create test products
+      if (connectionTest.documentsFound === 0) {
+        await createTestProducts()
+        toast({
+          title: "Test products created",
+          description: "Sample products have been added to the database.",
+        })
+      } else {
+        toast({
+          title: "Database Status",
+          description: `Found ${connectionTest.documentsFound} existing products in database. Refreshing view...`,
+        })
+      }
+      
+      // Refresh products
+      const products = await getAllProducts()
+      setProducts(products)
+      
+    } catch (error) {
+      console.error("Error creating test products:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create test products.",
+        variant: "destructive",
+      })
+    }
   }
 
   if (loading) {
@@ -137,11 +198,18 @@ export default function ProductsPage() {
                 </>
               )}
             </p>
-            {!productsLoading && products.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => router.push("/products/new")}>
-                List Your Item
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {!productsLoading && products.length === 0 && (
+                <Button variant="secondary" size="sm" onClick={handleCreateTestProducts}>
+                  Debug Database
+                </Button>
+              )}
+              {!productsLoading && products.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => router.push("/products/new")}>
+                  List Your Item
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

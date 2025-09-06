@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, getDocs, query, where, orderBy } from "firebase/firestore"
+import { collection, addDoc, updateDoc, deleteDoc, getDocs, query, where, orderBy, doc } from "firebase/firestore"
 import { db } from "./firebase"
 import type { CartItem, Purchase } from "@/types/cart"
 import type { Product } from "@/types/product"
@@ -100,6 +100,17 @@ export async function createPurchase(userId: string, cartItems: CartItem[]): Pro
   }
 
   const docRef = await addDoc(collection(db, PURCHASES_COLLECTION), purchase)
+
+  // Update product status to "sold" for each purchased item
+  for (const item of cartItems) {
+    const productRef = doc(db, "products", item.productId)
+    await updateDoc(productRef, {
+      status: "sold",
+      updatedAt: new Date(),
+      soldAt: new Date(),
+      buyerId: userId, // Track who bought it
+    })
+  }
 
   // Clear cart after successful purchase
   await clearCart(userId)

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Heart, MapPin, Edit, Trash2 } from "lucide-react"
 import type { Product } from "@/types/product"
 import { useRouter } from "next/navigation"
+import { useFavorites } from "@/contexts/favorites-context"
+import { formatCurrencyCompact } from "@/lib/currency"
 
 interface ProductCardProps {
   product: Product
@@ -16,10 +18,24 @@ interface ProductCardProps {
 
 export function ProductCard({ product, showActions = false, onEdit, onDelete }: ProductCardProps) {
   const router = useRouter()
+  const { favoriteIds, addToFavorites, removeFromFavorites, isInFavorites, loading } = useFavorites()
+
+  const isFavorite = isInFavorites(product.id)
 
   const handleCardClick = () => {
     if (!showActions) {
       router.push(`/products/${product.id}`)
+    }
+  }
+
+  const handleFavoriteToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (loading) return
+    
+    if (isFavorite) {
+      await removeFromFavorites(product.id)
+    } else {
+      await addToFavorites(product.id)
     }
   }
 
@@ -53,13 +69,11 @@ export function ProductCard({ product, showActions = false, onEdit, onDelete }: 
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-              onClick={(e) => {
-                e.stopPropagation()
-                // Add to favorites logic
-              }}
+              className={`absolute top-2 right-2 ${isFavorite ? 'bg-red-50 hover:bg-red-100' : 'bg-white/80 hover:bg-white'}`}
+              onClick={handleFavoriteToggle}
+              disabled={loading}
             >
-              <Heart className="h-4 w-4" />
+              <Heart className={`h-4 w-4 ${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
             </Button>
           )}
           <Badge className={`absolute top-2 left-2 ${getConditionColor(product.condition)}`}>{product.condition}</Badge>
@@ -69,7 +83,7 @@ export function ProductCard({ product, showActions = false, onEdit, onDelete }: 
       <CardContent className="p-4">
         <div className="space-y-2">
           <h3 className="font-semibold text-lg line-clamp-2">{product.title}</h3>
-          <p className="text-2xl font-bold text-primary">${product.price.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-primary">{formatCurrencyCompact(product.price)}</p>
           <p className="text-sm text-muted-foreground line-clamp-2">{product.description}</p>
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">

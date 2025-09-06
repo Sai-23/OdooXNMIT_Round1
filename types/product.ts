@@ -12,6 +12,9 @@ export interface Product {
   status: "active" | "sold" | "inactive"
   condition: "excellent" | "good" | "fair" | "poor"
   location?: string
+  // Fields added when product is sold
+  soldAt?: Date
+  buyerId?: string
 }
 
 export interface CreateProductData {

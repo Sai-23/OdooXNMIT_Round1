@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { createPurchase } from "@/lib/cart"
 import { useToast } from "@/hooks/use-toast"
+import { formatCurrency } from "@/lib/currency"
 import { ShoppingCart, CreditCard, ArrowRight } from "lucide-react"
 
 export default function CartPage() {
@@ -106,7 +107,7 @@ export default function CartPage() {
                         <span className="line-clamp-1">
                           {item.product.title} × {item.quantity}
                         </span>
-                        <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+                        <span>{formatCurrency(item.product.price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>
@@ -115,7 +116,7 @@ export default function CartPage() {
 
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total</span>
-                    <span>${cartTotal.toFixed(2)}</span>
+                    <span>{formatCurrency(cartTotal)}</span>
                   </div>
 
                   <Button onClick={handleCheckout} disabled={checkoutLoading} className="w-full" size="lg">

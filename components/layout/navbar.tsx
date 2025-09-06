@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/contexts/auth-context"
 import { useCart } from "@/contexts/cart-context"
+import { useFavorites } from "@/contexts/favorites-context"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +20,7 @@ import { useRouter } from "next/navigation"
 export function Navbar() {
   const { user, userProfile, logout } = useAuth()
   const { cartCount } = useCart()
+  const { favorites } = useFavorites()
   const router = useRouter()
 
   const handleLogout = async () => {
@@ -54,8 +56,13 @@ export function Navbar() {
             <Button variant="ghost" size="icon" onClick={() => router.push("/products/new")}>
               <Plus className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => router.push("/favorites")}>
+            <Button variant="ghost" size="icon" className="relative" onClick={() => router.push("/favorites")}>
               <Heart className="h-5 w-5" />
+              {favorites.length > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                  {favorites.length > 99 ? "99+" : favorites.length}
+                </Badge>
+              )}
             </Button>
             <Button variant="ghost" size="icon" className="relative" onClick={() => router.push("/cart")}>
               <ShoppingCart className="h-5 w-5" />

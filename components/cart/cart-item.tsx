@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useCart } from "@/contexts/cart-context"
 import type { CartItem } from "@/types/cart"
+import { formatCurrency } from "@/lib/currency"
 import { Minus, Plus, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -48,7 +49,7 @@ export function CartItemComponent({ item }: CartItemProps) {
               {item.product.title}
             </h3>
             <p className="text-sm text-muted-foreground">Sold by {item.product.sellerName}</p>
-            <p className="text-lg font-semibold text-primary">${item.product.price.toFixed(2)}</p>
+            <p className="text-lg font-semibold text-primary">{formatCurrency(item.product.price)}</p>
           </div>
 
           {/* Quantity Controls */}

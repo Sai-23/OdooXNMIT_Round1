@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { createProduct, updateProduct } from "@/lib/products"
 import { PRODUCT_CATEGORIES, type CreateProductData, type Product } from "@/types/product"
 import { useToast } from "@/hooks/use-toast"
-import { Upload, Save } from "lucide-react"
+import { Upload, Save, X } from "lucide-react"
 
 interface ProductFormProps {
   product?: Product
@@ -26,12 +26,16 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [imageUploading, setImageUploading] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>(product?.imageUrl || "")
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState<CreateProductData>({
     title: product?.title || "",
     description: product?.description || "",
     category: product?.category || "",
     price: product?.price || 0,
-    imageUrl: product?.imageUrl || "/diverse-products-still-life.png",
+    imageUrl: product?.imageUrl || "",
     condition: product?.condition || "good",
     location: product?.location || "",
   })
@@ -39,6 +43,16 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!userProfile) return
+
+    // Validate that an image is uploaded
+    if (!formData.imageUrl) {
+      toast({
+        title: "Image required",
+        description: "Please upload an image for your product.",
+        variant: "destructive",
+      })
+      return
+    }
 
     setLoading(true)
 
@@ -68,6 +82,69 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
     }
   }
 
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = error => reject(error)
+    })
+  }
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Validate file size (2MB limit for base64 to avoid Firestore limits)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 2MB.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setImageUploading(true)
+      try {
+        const base64String = await convertToBase64(file)
+        setSelectedImage(file)
+        setImagePreview(base64String)
+        setFormData(prev => ({ ...prev, imageUrl: base64String }))
+      } catch (error) {
+        toast({
+          title: "Error processing image",
+          description: "Failed to process the selected image.",
+          variant: "destructive",
+        })
+      } finally {
+        setImageUploading(false)
+      }
+    }
+  }
+
+  const handleImageUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const removeImage = () => {
+    setSelectedImage(null)
+    setImagePreview("")
+    setFormData(prev => ({ ...prev, imageUrl: "" }))
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
   const handleInputChange = (field: keyof CreateProductData, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
@@ -84,21 +161,60 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Product Image */}
           <div className="space-y-2">
-            <Label>Product Image</Label>
+            <Label>Product Image *</Label>
             <div className="flex items-center space-x-4">
-              <div className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted">
-                <img
-                  src={formData.imageUrl || "/placeholder.svg"}
-                  alt="Product preview"
-                  className="w-full h-full object-cover rounded-lg"
-                />
+              <div className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted relative">
+                {imagePreview || formData.imageUrl ? (
+                  <>
+                    <img
+                      src={imagePreview || formData.imageUrl || "/placeholder.svg"}
+                      alt="Product preview"
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                      onClick={removeImage}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground">No image</p>
+                  </div>
+                )}
               </div>
-              <Button type="button" variant="outline">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Image
-              </Button>
+              <div className="flex-1">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageSelect}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={handleImageUploadClick}
+                  disabled={imageUploading}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {imageUploading ? "Uploading..." : "Upload Image"}
+                </Button>
+                {selectedImage && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Selected: {selectedImage.name}
+                  </p>
+                )}
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">Upload a clear photo of your item</p>
+            <p className="text-sm text-muted-foreground">
+              Upload a clear photo of your item. Required field. Max size: 2MB.
+            </p>
           </div>
 
           {/* Product Title */}
@@ -152,7 +268,7 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
           {/* Price and Location */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="price">Price ($) *</Label>
+              <Label htmlFor="price">Price (₹) *</Label>
               <Input
                 id="price"
                 type="number"
@@ -188,9 +304,13 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
             />
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button 
+            type="submit" 
+            disabled={loading || imageUploading || !formData.imageUrl} 
+            className="w-full"
+          >
             <Save className="h-4 w-4 mr-2" />
-            {loading ? "Saving..." : isEditing ? "Update Product" : "List Product"}
+            {loading ? "Saving..." : imageUploading ? "Processing Image..." : isEditing ? "Update Product" : "List Product"}
           </Button>
         </form>
       </CardContent>

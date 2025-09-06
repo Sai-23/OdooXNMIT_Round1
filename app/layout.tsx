@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
 import { CartProvider } from "@/contexts/cart-context"
+import { FavoritesProvider } from "@/contexts/favorites-context"
 import { Suspense } from "react"
 import "./globals.css"
 
@@ -24,7 +25,9 @@ export default function RootLayout({
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <Suspense fallback={null}>
           <AuthProvider>
-            <CartProvider>{children}</CartProvider>
+            <CartProvider>
+              <FavoritesProvider>{children}</FavoritesProvider>
+            </CartProvider>
           </AuthProvider>
         </Suspense>
         <Analytics />

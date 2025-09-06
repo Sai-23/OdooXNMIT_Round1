@@ -8,32 +8,59 @@ import { DashboardStats } from "@/components/dashboard/dashboard-stats"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Package, TrendingUp, Search } from "lucide-react"
+import { getDashboardStats, getRecentActivity, getImpactSummary, formatTimeAgo, type DashboardStats as DashboardStatsType, type RecentActivity, type ImpactSummary } from "@/lib/dashboard"
+import { formatCurrency } from "@/lib/currency"
 
 export default function DashboardPage() {
   const { user, userProfile, loading } = useAuth()
   const router = useRouter()
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStatsType>({
     totalListings: 0,
+    activeLisings: 0,
     totalSales: 0,
     totalPurchases: 0,
     totalEarnings: 0,
+    totalSpent: 0,
   })
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [impactSummary, setImpactSummary] = useState<ImpactSummary>({
+    itemsGivenNewLife: 0,
+    co2Saved: 0,
+    communityRating: 0
+  })
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return
+
+    if (!user) {
       router.push("/login")
+      return
     }
-  }, [user, loading, router])
 
-  // Mock stats for now - will be replaced with real data
-  useEffect(() => {
-    setStats({
-      totalListings: 12,
-      totalSales: 8,
-      totalPurchases: 15,
-      totalEarnings: 245.5,
-    })
-  }, [])
+    const loadDashboardData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Load all dashboard data
+        const [dashboardStats, activity, impact] = await Promise.all([
+          getDashboardStats(user.uid),
+          getRecentActivity(user.uid),
+          getImpactSummary(user.uid)
+        ])
+
+        setStats(dashboardStats)
+        setRecentActivity(activity)
+        setImpactSummary(impact)
+      } catch (error) {
+        console.error('Error loading dashboard data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadDashboardData()
+  }, [user, loading, router])
 
   if (loading) {
     return (
@@ -50,11 +77,18 @@ export default function DashboardPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back, {userProfile?.username || "User"}!</h1>
-          <p className="text-muted-foreground">Here's what's happening with your sustainable marketplace activity</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Welcome back, {userProfile?.username || user?.email || "User"}!
+          </h1>
+          <p className="text-muted-foreground">
+            Here's what's happening with your sustainable marketplace activity
+          </p>
         </div>
 
-        <DashboardStats stats={stats} />
+        <DashboardStats 
+          stats={stats}
+          isLoading={isLoading}
+        />
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">
           <Card>
@@ -88,20 +122,32 @@ export default function DashboardPage() {
               <CardDescription>Your latest marketplace interactions</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span>Vintage Camera listed</span>
-                  <span className="text-muted-foreground">2 hours ago</span>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between">
-                  <span>Book collection sold</span>
-                  <span className="text-muted-foreground">1 day ago</span>
+              ) : recentActivity.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p className="text-sm">No recent activity</p>
+                  <p className="text-xs">Start listing or purchasing items to see activity here.</p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Bicycle purchased</span>
-                  <span className="text-muted-foreground">3 days ago</span>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  {recentActivity.slice(0, 3).map((activity, index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>{activity.title}</span>
+                      <span className="text-muted-foreground">
+                        {formatTimeAgo(activity.timestamp)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -114,20 +160,30 @@ export default function DashboardPage() {
               <CardDescription>Your contribution to sustainability</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm">Items given new life</span>
-                  <span className="font-semibold">23</span>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">CO2 saved (estimated)</span>
-                  <span className="font-semibold">45 kg</span>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Items given new life</span>
+                    <span className="font-semibold">{impactSummary.itemsGivenNewLife}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">CO₂ saved (estimated)</span>
+                    <span className="font-semibold">{impactSummary.co2Saved.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Community rating</span>
+                    <span className="font-semibold">{impactSummary.communityRating.toFixed(1)}/5</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Community rating</span>
-                  <span className="font-semibold">4.8/5</span>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>

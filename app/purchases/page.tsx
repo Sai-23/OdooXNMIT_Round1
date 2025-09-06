@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { getUserPurchases } from "@/lib/cart"
 import type { Purchase } from "@/types/cart"
 import { useToast } from "@/hooks/use-toast"
+import { formatCurrency } from "@/lib/currency"
 import { Package, Calendar, DollarSign, ArrowRight } from "lucide-react"
 
 export default function PurchasesPage() {
@@ -108,7 +109,7 @@ export default function PurchasesPage() {
                           {new Date(purchase.createdAt).toLocaleDateString()}
                         </span>
                         <span className="flex items-center">
-                          <DollarSign className="h-4 w-4 mr-1" />${purchase.totalAmount.toFixed(2)}
+                          <DollarSign className="h-4 w-4 mr-1" />{formatCurrency(purchase.totalAmount)}
                         </span>
                       </CardDescription>
                     </div>
@@ -137,11 +138,11 @@ export default function PurchasesPage() {
                           </h4>
                           <p className="text-sm text-muted-foreground">Sold by {item.product.sellerName}</p>
                           <p className="text-sm">
-                            Quantity: {item.quantity} × ${item.product.price.toFixed(2)}
+                            Quantity: {item.quantity} × {formatCurrency(item.product.price)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold">${(item.product.price * item.quantity).toFixed(2)}</p>
+                          <p className="font-semibold">{formatCurrency(item.product.price * item.quantity)}</p>
                         </div>
                       </div>
                     ))}

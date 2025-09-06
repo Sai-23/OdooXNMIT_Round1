@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, use } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useCart } from "@/contexts/cart-context"
+import { useFavorites } from "@/contexts/favorites-context"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/layout/navbar"
 import { Button } from "@/components/ui/button"
@@ -12,16 +13,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getProduct } from "@/lib/products"
 import type { Product } from "@/types/product"
 import { useToast } from "@/hooks/use-toast"
+import { formatCurrencyCompact } from "@/lib/currency"
 import { ArrowLeft, Heart, MessageCircle, MapPin, Calendar, ShoppingCart } from "lucide-react"
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
+export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
   const { user, loading } = useAuth()
   const { addItem } = useCart()
+  const { addToFavorites, removeFromFavorites, isInFavorites, loading: favoritesLoading } = useFavorites()
   const router = useRouter()
   const { toast } = useToast()
   const [product, setProduct] = useState<Product | null>(null)
   const [productLoading, setProductLoading] = useState(true)
   const [addingToCart, setAddingToCart] = useState(false)
+  const [addingToFavorites, setAddingToFavorites] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -32,7 +37,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const productData = await getProduct(params.id)
+        const productData = await getProduct(resolvedParams.id)
         if (productData) {
           setProduct(productData)
         } else {
@@ -56,10 +61,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       }
     }
 
-    if (params.id) {
+    if (resolvedParams.id) {
       fetchProduct()
     }
-  }, [params.id, router, toast])
+  }, [resolvedParams.id, router, toast])
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
@@ -97,11 +102,41 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     }
   }
 
-  const handleContactSeller = () => {
+    const handleContactSeller = () => {
     toast({
       title: "Contact seller",
-      description: "Messaging feature coming soon!",
+      description: "This feature will be available soon. You can find seller contact information in their profile.",
     })
+  }
+
+  const handleFavoriteToggle = async () => {
+    if (!product) return
+
+    setAddingToFavorites(true)
+    try {
+      const isFavorite = isInFavorites(product.id)
+      if (isFavorite) {
+        await removeFromFavorites(product.id)
+        toast({
+          title: "Removed from favorites",
+          description: "Product has been removed from your favorites.",
+        })
+      } else {
+        await addToFavorites(product.id)
+        toast({
+          title: "Added to favorites",
+          description: "Product has been added to your favorites.",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update favorites. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setAddingToFavorites(false)
+    }
   }
 
   if (loading || productLoading) {
@@ -114,7 +149,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
   if (!user || !product) return null
 
-  const isOwnProduct = product.sellerId === user.uid
+  const isOwnProduct = user && product && product.sellerId === user.uid
 
   return (
     <div className="min-h-screen bg-background">
@@ -145,7 +180,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">{product.title}</h1>
-              <p className="text-4xl font-bold text-primary mb-4">${product.price.toFixed(2)}</p>
+              <p className="text-4xl font-bold text-primary mb-4">{formatCurrencyCompact(product.price)}</p>
               <Badge variant="outline" className="mb-4">
                 {product.category}
               </Badge>
@@ -218,9 +253,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                       <MessageCircle className="h-4 w-4 mr-2" />
                       Contact Seller
                     </Button>
-                    <Button variant="outline">
-                      <Heart className="h-4 w-4 mr-2" />
-                      Save
+                    <Button variant="outline" onClick={handleFavoriteToggle} disabled={addingToFavorites}>
+                      <Heart className={`h-4 w-4 mr-2 ${isInFavorites(product.id) ? 'text-red-500 fill-red-500' : ''}`} />
+                      {addingToFavorites ? 'Updating...' : (isInFavorites(product.id) ? 'Remove from Favorites' : 'Add to Favorites')}
                     </Button>
                   </div>
                 </>

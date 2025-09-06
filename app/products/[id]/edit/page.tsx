@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, use } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/layout/navbar"
@@ -8,7 +8,8 @@ import { ProductForm } from "@/components/products/product-form"
 import { getProduct } from "@/lib/products"
 import type { Product } from "@/types/product"
 
-export default function EditProductPage({ params }: { params: { id: string } }) {
+export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
   const { user, loading } = useAuth()
   const router = useRouter()
   const [product, setProduct] = useState<Product | null>(null)
@@ -23,7 +24,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const productData = await getProduct(params.id)
+        const productData = await getProduct(resolvedParams.id)
         if (productData) {
           setProduct(productData)
         } else {
@@ -37,10 +38,10 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       }
     }
 
-    if (params.id) {
+    if (resolvedParams.id) {
       fetchProduct()
     }
-  }, [params.id, router])
+  }, [resolvedParams.id, router])
 
   if (loading || productLoading) {
     return (
